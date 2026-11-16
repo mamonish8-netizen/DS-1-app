@@ -1,0 +1,6 @@
+{
+  "name": "AeroCool Monitor",
+  "description": "Smart hardware cooling, thermal telemetry, per-process TGP power tracking, and fan curve tuner dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,237 @@
+---
+name: AeroCool Thermal Precision
+colors:
+  surface: '#0e131f'
+  surface-dim: '#0e131f'
+  surface-bright: '#343946'
+  surface-container-lowest: '#080e1a'
+  surface-container-low: '#161c28'
+  surface-container: '#1a202c'
+  surface-container-high: '#242a36'
+  surface-container-highest: '#2f3542'
+  on-surface: '#dde2f3'
+  on-surface-variant: '#bdc8d1'
+  inverse-surface: '#dde2f3'
+  inverse-on-surface: '#2b303d'
+  outline: '#87929a'
+  outline-variant: '#3e484f'
+  surface-tint: '#7bd0ff'
+  primary: '#8ed5ff'
+  on-primary: '#00354a'
+  primary-container: '#38bdf8'
+  on-primary-container: '#004965'
+  inverse-primary: '#00668a'
+  secondary: '#ffb690'
+  on-secondary: '#552100'
+  secondary-container: '#ec6a06'
+  on-secondary-container: '#4a1c00'
+  tertiary: '#ffc176'
+  on-tertiary: '#472a00'
+  tertiary-container: '#f1a02b'
+  on-tertiary-container: '#613b00'
+  error: '#ffb4ab'
+  on-error: '#690005'
+  error-container: '#93000a'
+  on-error-container: '#ffdad6'
+  primary-fixed: '#c4e7ff'
+  primary-fixed-dim: '#7bd0ff'
+  on-primary-fixed: '#001e2c'
+  on-primary-fixed-variant: '#004c69'
+  secondary-fixed: '#ffdbca'
+  secondary-fixed-dim: '#ffb690'
+  on-secondary-fixed: '#341100'
+  on-secondary-fixed-variant: '#783200'
+  tertiary-fixed: '#ffddb8'
+  tertiary-fixed-dim: '#ffb960'
+  on-tertiary-fixed: '#2a1700'
+  on-tertiary-fixed-variant: '#653e00'
+  background: '#0e131f'
+  on-background: '#dde2f3'
+  surface-variant: '#2f3542'
+typography:
+  headline-xl:
+    fontFamily: Space Grotesk
+    fontSize: 36px
+    fontWeight: '700'
+    lineHeight: 44px
+    letterSpacing: -0.02em
+  headline-xl-mobile:
+    fontFamily: Space Grotesk
+    fontSize: 28px
+    fontWeight: '700'
+    lineHeight: 36px
+    letterSpacing: -0.01em
+  headline-lg:
+    fontFamily: Space Grotesk
+    fontSize: 24px
+    fontWeight: '600'
+    lineHeight: 32px
+    letterSpacing: -0.01em
+  headline-md:
+    fontFamily: Space Grotesk
+    fontSize: 18px
+    fontWeight: '600'
+    lineHeight: 24px
+    letterSpacing: 0em
+  body-lg:
+    fontFamily: Inter
+    fontSize: 16px
+    fontWeight: '400'
+    lineHeight: 24px
+  body-md:
+    fontFamily: Inter
+    fontSize: 14px
+    fontWeight: '400'
+    lineHeight: 20px
+  body-sm:
+    fontFamily: Inter
+    fontSize: 12px
+    fontWeight: '400'
+    lineHeight: 16px
+  label-data-lg:
+    fontFamily: JetBrains Mono
+    fontSize: 28px
+    fontWeight: '600'
+    lineHeight: 32px
+    letterSpacing: -0.03em
+  label-data-md:
+    fontFamily: JetBrains Mono
+    fontSize: 16px
+    fontWeight: '500'
+    lineHeight: 20px
+    letterSpacing: -0.02em
+  label-data-sm:
+    fontFamily: JetBrains Mono
+    fontSize: 12px
+    fontWeight: '500'
+    lineHeight: 16px
+    letterSpacing: 0.04em
+  label-tag:
+    fontFamily: JetBrains Mono
+    fontSize: 10px
+    fontWeight: '700'
+    lineHeight: 12px
+    letterSpacing: 0.08em
+rounded:
+  sm: 0.125rem
+  DEFAULT: 0.25rem
+  md: 0.375rem
+  lg: 0.5rem
+  xl: 0.75rem
+  full: 9999px
+spacing:
+  gutter: 1rem
+  gutter-lg: 1.5rem
+  margin: 1rem
+  margin-lg: 2rem
+  space-xs: 0.25rem
+  space-sm: 0.5rem
+  space-md: 1rem
+  space-lg: 1.5rem
+  space-xl: 2.5rem
+---
+
+## Brand & Style
+
+This design system delivers a high-performance, telemetry-driven experience tailored for hardware enthusiasts, system tuners, and thermal engineers. The aesthetic merges precision engineering with aerospace cockpit displays: uncompromising pure-black foundations, glowing instrumentation, and high-frequency real-time updates.
+
+### Target Persona & Mindset
+Built for users managing critical PC hardware, extreme cooling loops, and high-load workstations. The interface prioritizes zero-latency optical clarity, precise numerical readouts, and immediate thermal trend recognition under low-light laboratory or gaming environments.
+
+### Core Visual Principles
+- **Deep OLED Canvas:** Zero-light baseline pixels minimize ambient glare, save display power, and maximize chromatic contrast against glowing telemetry metrics.
+- **Instrument Glass & Structural Framing:** Subtly translucent cockpit-style dark cards framed with precision-milled hairline strokes.
+- **Chromatic Telemetry Separation:** Absolute visual taxonomy where cyan signals cooling throughput, airflow, and fan actuation, while fiery neon orange warns and tracks thermal friction, core wattage, and active voltage offsets.
+- **Technical Minimalism:** Free of decorative clutter; dominated by monospaced readouts, vector flow curves, and sharp geometric instrumentation dials.
+
+## Colors
+
+The color architecture is built around absolute black and low-luminance slate containers, allowing neon telemetry channels to function as high-energy light emitters.
+
+### Palette Architecture
+- **Pitch OLED Base (`#000000` / `#030712`):** Ground-level substrate across the entire monitoring viewport. No ambient light or midtone grey backgrounds.
+- **Subsurface Slate (`#0B0F19`, `#111827`):** Precision dark glass container tiers that isolate hardware nodes (e.g., AIO pumps, GPU thermal blocks, fan headers).
+- **Hairline Borders (`#1E293B`, `#334155`):** Structural 1px separation lines defining card edges, data rows, and module frames.
+- **Cooling Vector Cyan (`#38BDF8`):** Dedicated exclusively to cooling, flow meters, RPM indicators, coolant temps within spec, and acoustic fan curves.
+- **Thermal Vector Orange (`#F97316`):** Dedicated to junction temperatures, core power, manual voltage offsets, clock frequencies, and active overclock throttling.
+- **Readout White (`#F8FAFC`) & Slate Subtext (`#94A3B8`):** High-grade readability with strict hierarchical contrast. Subordinate unit labels (`RPM`, `°C`, `mV`, `W`) render in slate, while values render in crisp high-contrast white.
+
+## Typography
+
+Typography establishes an instant operational division between descriptive UI language and numerical sensor telemetry.
+
+### Font Hierarchy
+- **Space Grotesk (Titles & Headers):** Geometric, futuristic sans with technological character. Used for system labels, subsystem card headings, and modal titles.
+- **Inter (Body & Narrative UI):** Hyper-legible, utilitarian UI font for tooltips, sensor descriptions, configuration dropdowns, and alert narratives.
+- **JetBrains Mono (Telemetry, Readouts & Status Chips):** Strict monospaced tabular numerals prevent layout jitter as sensor frequencies, fan RPMs, and voltages pulse rapidly in real-time.
+
+### Tabular Formatting Rules
+All telemetry readouts, slider input values, and metric curves must render via monospaced tabular figures with explicit unit segregation. Primary metrics use `label-data-lg` with trailing units set in `label-data-sm` at 60% opacity.
+
+## Layout & Spacing
+
+The dashboard uses a 12-column responsive fluid grid optimized for high-density hardware telemetry. 
+
+### Grid & Canvas Adaptation
+- **Desktop (1440px+):** 12-column grid, 2rem canvas margins, 1.5rem gutters. Modules organize into structural quadrants: CPU/Core Metrics (top-left), Liquid/Airflow Loops (top-right), Curve Tuner & Fan Headers (bottom span).
+- **Tablet / Secondary Screen (768px - 1439px):** 6-column grid with 1rem gutters and margins. Tuners and fan banks collapse into stackable vertical panels with horizontal telemetry scrollers.
+- **Mobile / Compact Monitoring (Below 768px):** 4-column single-column stack. Heavy gauge widgets transition into consolidated linear strip meters.
+
+### Spatial Rhythm
+Inner-card telemetry groupings use tight micro-spacing (`space-xs` and `space-sm`) to lock values directly to their respective sensors. Module padding strictly adheres to `space-md` or `space-lg`, ensuring crisp separation without wasting viewport density.
+
+## Elevation & Depth
+
+Depth in this system is achieved via optical luminescence, glass backdrops, and hairline stroke stratification rather than conventional drop shadows.
+
+### Glassmorphism & Tiers
+- **Tier 0 (Root Canvas):** Pure pitch black (`#000000`). No light reflection.
+- **Tier 1 (Surface Cards):** `#0B0F19` with 80% opacity and 16px backdrop blur, encased in a 1px border of `#1E293B`.
+- **Tier 2 (Interactive Modules & Inset Meters):** `#111827` at 90% opacity, bordered by `#334155`. Inset controls feature a 1px top highlight at 10% white opacity.
+- **Tier 3 (Floating Overlays & Flyout Drawers):** `#0F172A` with 95% opacity, bordered by `#38BDF8` at 30% alpha for active cooling tools or `#F97316` at 30% alpha for thermal tuning tools.
+
+### Ambient Optical Glows
+Active indicators leverage radial photonic emission:
+- **Cooling Glow:** `0 0 16px -2px rgba(56, 189, 248, 0.35)` applied to high-RPM fan icons, active pump indicators, and liquid flow vectors.
+- **Thermal Glow:** `0 0 20px -2px rgba(249, 115, 22, 0.40)` applied to peak temperature zones, threshold-exceeding chips, and active voltage steppers.
+
+## Shapes
+
+The interface embraces a chamfered, precision-milled hardware aesthetic. It avoids exaggerated rounded corners in favor of technical, compact corners that mirror CNC-milled liquid cold plates and avionics displays.
+
+### Geometry Specification
+- **Base Components (Inputs, Buttons, Chips):** `rounded` (0.25rem / 4px). Delivers tight, crisp edges suited for dense data tables and telemetry docks.
+- **Telemetry Cards & Chart Containers:** `rounded-lg` (0.5rem / 8px). Creates sleek module separation while keeping visual lines compact and aligned.
+- **Control Sliders & Track Thumbs:** Precision squares or sharp-cornered pills with minimal 2px radii for surgical control targeting.
+
+## Components
+
+### Telemetry Cards & Metric Dials
+- Dark glass surface (`#0B0F19`/80%) framed with 1px `#1E293B`.
+- Top-level title in Space Grotesk (`headline-md`) alongside a monospaced live status dot (glowing Cyan for normal loop operations, Orange for high-duty heat states).
+- Circular radial gauges feature a 4px dark track (`#1E293B`) filled with either glowing `#38BDF8` (RPM) or `#F97316` (Temps). Center values render in `label-data-lg`.
+
+### Buttons
+- **Primary Cool (`Action: Boost / Cool`):** Filled `#38BDF8` text on black or solid `#38BDF8` background with `#030712` text, glowing cyan on hover with a 1px border of `#7DD3FC`.
+- **Primary Thermal (`Action: Apply Voltage / Stress Test`):** Filled `#F97316` with `#030712` text, intense orange bloom on hover (`rgba(249, 115, 22, 0.4)`).
+- **Secondary Ghost:** Jet-black interior, 1px `#334155` border, `#F8FAFC` text; transitions to 1px `#94A3B8` on hover.
+
+### Sliders & Tuning Curves (Fan RPM & Voltage Steppers)
+- **Track:** 4px height, `#111827` surface with a 1px `#1E293B` outer contour.
+- **Active Fill:** Neon gradient ending in either Cyan or Orange depending on channel mode.
+- **Thumb:** 14px x 14px square rotated 45° (diamond point) or 4px rounded pill, pure white (`#F8FAFC`) with corresponding colored drop glow.
+
+### Chips & Sensor Badges
+- 20px fixed height, font `label-tag` uppercase.
+- Cyan badge: `rgba(56, 189, 248, 0.12)` background, `rgba(56, 189, 248, 0.4)` border, `#38BDF8` text.
+- Thermal badge: `rgba(249, 115, 22, 0.12)` background, `rgba(249, 115, 22, 0.4)` border, `#F97316` text.
+
+### Input Fields & Direct Frequency Entry
+- Direct numerical inputs render in JetBrains Mono. 
+- Background `#030712`, 1px border `#334155`.
+- Focus state activates a 1px `#38BDF8` border with zero drop-shadow spread, shifting inner text to pure white.
+
+### Real-Time Trend Charts
+- Scaled vector line charts with pure black background.
+- Grid lines rendered with 1px dashed `#1E293B`.
+- 1.5px continuous glow polyline in `#38BDF8` (cooling/flow) or `#F97316` (die temperatures), underpinned by a subtle 8% vertical linear opacity gradient fill.

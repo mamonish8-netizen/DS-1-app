@@ -1,0 +1,32 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  html,
+  body {
+    background-color: #000000;
+    color: #ffffff;
+    font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  }
+
+  .font-mono-tabular {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.glow-cool {
+  box-shadow: 0 0 18px -3px rgba(56, 189, 248, 0.4);
+}
+
+.glow-thermal {
+  box-shadow: 0 0 20px -3px rgba(249, 115, 22, 0.42);
+}
+
+.text-glow-cool {
+  text-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+}
+
+.text-glow-thermal {
+  text-shadow: 0 0 12px rgba(249, 115, 22, 0.55);
+}
