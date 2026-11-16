@@ -8,6 +8,7 @@ import type {
   TelemetryFrame,
   TelemetryHistoryPoint,
   TgpHistoryResponse,
+  TunerApplyInput,
   TunerProfile,
   TunerState,
 } from "../types/telemetry";
@@ -23,6 +24,7 @@ export interface UseAeroCoolResult {
   telemetry: TelemetryFrame | null;
   history15m: TelemetryHistoryPoint[];
   tgpHistory: TgpHistoryResponse | null;
+  tgpWindowMinutes: number;
   tunerState: TunerState | null;
   profiles: TunerProfile[];
   connectionStatus: ConnectionStatus;
@@ -32,6 +34,7 @@ export interface UseAeroCoolResult {
   lastSavedAt: string | null;
   clearError: () => void;
   refreshTgpHistory: (minutes?: number) => Promise<void>;
+  applyTuner: (payload: TunerApplyInput) => Promise<TunerState | null>;
   updateFanCurve: (points: FanCurvePoint[]) => Promise<TunerState | null>;
   updateClockOffsets: (offsets: ClockOffsets) => Promise<TunerState | null>;
   applyProfile: (name: string) => Promise<TunerState | null>;
@@ -43,7 +46,7 @@ export interface UseAeroCoolResult {
 
 export function useAeroCool(options: UseAeroCoolOptions = {}): UseAeroCoolResult {
   const client = useMemo(() => new AeroCoolApiClient({ baseUrl: options.baseUrl }), [options.baseUrl]);
-  const tgpMinutes = options.tgpWindowMinutes ?? 60;
+  const [tgpWindowMinutes, setTgpWindowMinutes] = useState<number>(options.tgpWindowMinutes ?? 60);
 
   const [telemetry, setTelemetry] = useState<TelemetryFrame | null>(null);
   const [history15m, setHistory15m] = useState<TelemetryHistoryPoint[]>([]);
@@ -57,13 +60,19 @@ export function useAeroCool(options: UseAeroCoolOptions = {}): UseAeroCoolResult
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
 
   const mountedRef = useRef<boolean>(true);
+  const windowMinutesRef = useRef<number>(tgpWindowMinutes);
+  windowMinutesRef.current = tgpWindowMinutes;
 
   const clearError = useCallback(() => setError(null), []);
 
   const refreshTgpHistory = useCallback(
-    async (minutes = tgpMinutes) => {
+    async (minutes?: number) => {
+      const targetMinutes = minutes ?? windowMinutesRef.current;
+      if (minutes !== undefined) {
+        setTgpWindowMinutes(minutes);
+      }
       try {
-        const data = await client.getTgpHistory(minutes, 120);
+        const data = await client.getTgpHistory(targetMinutes, 120);
         if (mountedRef.current) {
           setTgpHistory(data);
         }
@@ -73,7 +82,7 @@ export function useAeroCool(options: UseAeroCoolOptions = {}): UseAeroCoolResult
         }
       }
     },
-    [client, tgpMinutes]
+    [client]
   );
 
   useEffect(() => {
@@ -87,7 +96,7 @@ export function useAeroCool(options: UseAeroCoolOptions = {}): UseAeroCoolResult
           client.getTelemetryHistory(15),
           client.getTunerState(),
           client.listProfiles(),
-          client.getTgpHistory(tgpMinutes, 120),
+          client.getTgpHistory(windowMinutesRef.current, 120),
         ]);
 
         if (!mountedRef.current) return;
@@ -136,7 +145,7 @@ export function useAeroCool(options: UseAeroCoolOptions = {}): UseAeroCoolResult
     });
 
     const tgpInterval = setInterval(() => {
-      void refreshTgpHistory(tgpMinutes);
+      void refreshTgpHistory(windowMinutesRef.current);
     }, 10000);
 
     return () => {
@@ -144,7 +153,35 @@ export function useAeroCool(options: UseAeroCoolOptions = {}): UseAeroCoolResult
       disconnect();
       clearInterval(tgpInterval);
     };
-  }, [client, refreshTgpHistory, tgpMinutes]);
+  }, [client, refreshTgpHistory]);
+
+  const applyTuner = useCallback(
+    async (payload: TunerApplyInput): Promise<TunerState | null> => {
+      setSaving(true);
+      setError(null);
+      try {
+        const updated = await client.applyTuner(payload);
+        if (mountedRef.current) {
+          setTunerState((prev) => ({
+            ...updated,
+            safety_limits: prev?.safety_limits,
+          }));
+          setLastSavedAt(updated.updated_at);
+        }
+        return updated;
+      } catch (err) {
+        if (mountedRef.current) {
+          setError(err instanceof Error ? err.message : "Failed to apply tuner configuration");
+        }
+        return null;
+      } finally {
+        if (mountedRef.current) {
+          setSaving(false);
+        }
+      }
+    },
+    [client]
+  );
 
   const updateFanCurve = useCallback(
     async (points: FanCurvePoint[]): Promise<TunerState | null> => {
@@ -315,7 +352,7 @@ export function useAeroCool(options: UseAeroCoolOptions = {}): UseAeroCoolResult
     setError(null);
     try {
       await client.resetTgpPeaks();
-      await refreshTgpHistory(tgpMinutes);
+      await refreshTgpHistory(windowMinutesRef.current);
     } catch (err) {
       if (mountedRef.current) {
         setError(err instanceof Error ? err.message : "Failed to reset TGP voltage peaks");
@@ -325,12 +362,13 @@ export function useAeroCool(options: UseAeroCoolOptions = {}): UseAeroCoolResult
         setSaving(false);
       }
     }
-  }, [client, refreshTgpHistory, tgpMinutes]);
+  }, [client, refreshTgpHistory]);
 
   return {
     telemetry,
     history15m,
     tgpHistory,
+    tgpWindowMinutes,
     tunerState,
     profiles,
     connectionStatus,
@@ -340,6 +378,7 @@ export function useAeroCool(options: UseAeroCoolOptions = {}): UseAeroCoolResult
     lastSavedAt,
     clearError,
     refreshTgpHistory,
+    applyTuner,
     updateFanCurve,
     updateClockOffsets,
     applyProfile,

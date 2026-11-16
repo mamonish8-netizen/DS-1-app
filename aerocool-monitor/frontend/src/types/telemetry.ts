@@ -164,13 +164,23 @@ export interface ThermalSafetyLimits {
   manual_fan_max_pct: number;
 }
 
+export type DeviceTarget = "all" | "cpu" | "gpu";
+
 export interface TunerState {
   active_profile: string;
   fan_curve: FanCurvePoint[];
   clock_offsets: ClockOffsets;
+  locked?: boolean;
   updated_at: string;
   hardware_apply_status: string;
   safety_limits?: ThermalSafetyLimits;
+}
+
+export interface TunerApplyInput {
+  profile_name?: string;
+  fan_curve?: FanCurvePoint[];
+  clock_offsets?: ClockOffsets;
+  locked?: boolean;
 }
 
 export interface TunerProfile {

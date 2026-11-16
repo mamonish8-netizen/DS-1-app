@@ -143,6 +143,7 @@ let activeTuner: TunerState = {
   active_profile: "Balanced",
   fan_curve: structuredClone(BUILTIN_PROFILES[1].fan_curve),
   clock_offsets: structuredClone(BUILTIN_PROFILES[1].clock_offsets),
+  locked: false,
   updated_at: new Date().toISOString(),
   hardware_apply_status: "Active in thermal telemetry loop",
   safety_limits: SAFETY_LIMITS,
@@ -665,7 +666,7 @@ async function startServer() {
     });
   });
 
-  app.get("/api/tgp/history", (req: Request, res: Response) => {
+  const handleGetTgpHistory = (req: Request, res: Response) => {
     const minutes = Math.max(5, Math.min(1440, Number(req.query.minutes ?? 60)));
     const limit = Math.max(10, Math.min(500, Number(req.query.limit ?? 120)));
     const cutoff = Date.now() - minutes * 60 * 1000;
@@ -688,7 +689,10 @@ async function startServer() {
       process_peaks: peaks,
       summary,
     });
-  });
+  };
+
+  app.get("/api/processes/tgp-history", handleGetTgpHistory);
+  app.get("/api/tgp/history", handleGetTgpHistory);
 
   app.post("/api/tgp/reset-peaks", (_req: Request, res: Response) => {
     const count = processPeaks.size;
@@ -704,13 +708,73 @@ async function startServer() {
     res.json(activeTuner);
   });
 
+  app.post("/api/tuner/apply", (req: Request, res: Response) => {
+    try {
+      const requestedLock = typeof req.body?.locked === "boolean" ? req.body.locked : activeTuner.locked;
+      const hasConfigChange =
+        req.body?.profile_name !== undefined ||
+        req.body?.fan_curve !== undefined ||
+        req.body?.clock_offsets !== undefined;
+
+      if (activeTuner.locked && requestedLock !== false && hasConfigChange) {
+        res.status(423).json({ detail: "Tuner is locked. Unlock or Reset to Defaults before modifying settings." });
+        return;
+      }
+
+      let nextProfile = activeTuner.active_profile;
+      let nextCurve = activeTuner.fan_curve;
+      let nextOffsets = activeTuner.clock_offsets;
+
+      if (req.body?.profile_name) {
+        const prof = profilesMap.get(String(req.body.profile_name).trim());
+        if (!prof) {
+          res.status(404).json({ detail: `Profile '${req.body.profile_name}' not found.` });
+          return;
+        }
+        nextProfile = prof.name;
+        nextCurve = structuredClone(prof.fan_curve);
+        nextOffsets = structuredClone(prof.clock_offsets);
+      }
+
+      if (req.body?.fan_curve !== undefined) {
+        nextCurve = validateFanCurve(req.body.fan_curve);
+        if (!req.body?.profile_name) nextProfile = "Custom";
+      }
+
+      if (req.body?.clock_offsets !== undefined) {
+        nextOffsets = clampClockOffsets(req.body.clock_offsets);
+        if (!req.body?.profile_name) nextProfile = "Custom";
+      }
+
+      activeTuner = {
+        ...activeTuner,
+        active_profile: nextProfile,
+        fan_curve: nextCurve,
+        clock_offsets: nextOffsets,
+        locked: Boolean(requestedLock),
+        updated_at: new Date().toISOString(),
+        hardware_apply_status: requestedLock
+          ? "Configuration applied and locked"
+          : "Configuration applied to thermal loop",
+      };
+      res.json(activeTuner);
+    } catch (err) {
+      res.status(422).json({ detail: err instanceof Error ? err.message : "Invalid tuner payload" });
+    }
+  });
+
   app.put("/api/tuner/fan-curve", (req: Request, res: Response) => {
+    if (activeTuner.locked) {
+      res.status(423).json({ detail: "Tuner is locked. Unlock or Reset to Defaults before editing fan curve." });
+      return;
+    }
     try {
       const validated = validateFanCurve(req.body?.points);
       activeTuner = {
         ...activeTuner,
         active_profile: "Custom",
         fan_curve: validated,
+        locked: false,
         updated_at: new Date().toISOString(),
         hardware_apply_status: "Fan curve validated & active in thermal loop",
       };
@@ -721,11 +785,16 @@ async function startServer() {
   });
 
   app.put("/api/tuner/clocks", (req: Request, res: Response) => {
+    if (activeTuner.locked) {
+      res.status(423).json({ detail: "Tuner is locked. Unlock or Reset to Defaults before editing clock offsets." });
+      return;
+    }
     const clamped = clampClockOffsets(req.body ?? {});
     activeTuner = {
       ...activeTuner,
       active_profile: "Custom",
       clock_offsets: clamped,
+      locked: false,
       updated_at: new Date().toISOString(),
       hardware_apply_status: "Clock & power offsets applied to telemetry loop",
     };
@@ -784,44 +853,46 @@ async function startServer() {
       res.status(404).json({ detail: `Profile '${name}' not found.` });
       return;
     }
-    activeTuner = {
-      ...activeTuner,
-      active_profile: profile.name,
-      fan_curve: structuredClone(profile.fan_curve),
-      clock_offsets: structuredClone(profile.clock_offsets),
-      updated_at: new Date().toISOString(),
-      hardware_apply_status: `Activated profile '${profile.name}'`,
-    };
-    res.json(activeTuner);
-  });
+      activeTuner = {
+        ...activeTuner,
+        active_profile: profile.name,
+        fan_curve: structuredClone(profile.fan_curve),
+        clock_offsets: structuredClone(profile.clock_offsets),
+        locked: false,
+        updated_at: new Date().toISOString(),
+        hardware_apply_status: `Activated profile '${profile.name}'`,
+      };
+      res.json(activeTuner);
+    });
 
-  app.delete("/api/tuner/profiles/:name", (req: Request, res: Response) => {
-    const name = decodeURIComponent(String(req.params.name ?? ""));
-    const profile = profilesMap.get(name);
-    if (!profile) {
-      res.status(404).json({ detail: `Profile '${name}' not found.` });
-      return;
-    }
-    if (profile.is_builtin) {
-      res.status(400).json({ detail: `Built-in profile '${name}' cannot be deleted.` });
-      return;
-    }
-    profilesMap.delete(name);
-    res.json({ deleted: true, name });
-  });
+    app.delete("/api/tuner/profiles/:name", (req: Request, res: Response) => {
+      const name = decodeURIComponent(String(req.params.name ?? ""));
+      const profile = profilesMap.get(name);
+      if (!profile) {
+        res.status(404).json({ detail: `Profile '${name}' not found.` });
+        return;
+      }
+      if (profile.is_builtin) {
+        res.status(400).json({ detail: `Built-in profile '${name}' cannot be deleted.` });
+        return;
+      }
+      profilesMap.delete(name);
+      res.json({ deleted: true, name });
+    });
 
-  app.post("/api/tuner/reset", (_req: Request, res: Response) => {
-    const balanced = profilesMap.get("Balanced")!;
-    activeTuner = {
-      ...activeTuner,
-      active_profile: balanced.name,
-      fan_curve: structuredClone(balanced.fan_curve),
-      clock_offsets: structuredClone(balanced.clock_offsets),
-      updated_at: new Date().toISOString(),
-      hardware_apply_status: "Reset to Balanced factory profile",
-    };
-    res.json(activeTuner);
-  });
+    app.post("/api/tuner/reset", (_req: Request, res: Response) => {
+      const balanced = profilesMap.get("Balanced")!;
+      activeTuner = {
+        ...activeTuner,
+        active_profile: balanced.name,
+        fan_curve: structuredClone(balanced.fan_curve),
+        clock_offsets: structuredClone(balanced.clock_offsets),
+        locked: false,
+        updated_at: new Date().toISOString(),
+        hardware_apply_status: "Reset to Balanced factory defaults",
+      };
+      res.json(activeTuner);
+    });
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

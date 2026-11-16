@@ -131,9 +131,10 @@ Include `telemetryBridge.js` in your HTML page and tag elements with `data-aeroc
 | `/api/telemetry/current` | `GET` | Latest hardware & process snapshot |
 | `/api/telemetry/history?minutes=15` | `GET` | Rolling 15-minute thermal & power chart series |
 | `/api/processes` | `GET` | Live per-app CPU%, GPU%, Power (W), & Peak TGP Voltage |
-| `/api/tgp/history?minutes=60` | `GET` | Screen 2 SQLite TGP logs & peak voltage leaderboard |
+| `/api/processes/tgp-history?minutes=60` | `GET` | Screen 2 SQLite TGP logs & peak voltage leaderboard (alias: `/api/tgp/history`) |
 | `/api/tgp/reset-peaks` | `POST` | Reset stored historical Max TGP Voltage records |
-| `/api/tuner` | `GET` | Screen 3 active fan curve, clock offsets, & safety limits |
+| `/api/tuner` | `GET` | Screen 3 active fan curve, clock offsets, lock state, & safety bounds |
+| `/api/tuner/apply` | `POST` | Validate, apply, and optionally lock fan curve, clock offsets, or profile |
 | `/api/tuner/fan-curve` | `PUT` | Validate & persist custom fan curve |
 | `/api/tuner/clocks` | `PUT` | Validate & persist permanent clock/voltage/power offsets |
 | `/api/tuner/profiles` | `GET` / `POST` | List or save custom profiles in SQLite |

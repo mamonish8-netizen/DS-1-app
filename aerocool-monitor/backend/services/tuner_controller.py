@@ -84,6 +84,22 @@ class FanCurveUpdateRequest(BaseModel):
         return self
 
 
+class TunerApplyRequest(BaseModel):
+    profile_name: str | None = Field(default=None, min_length=2, max_length=48)
+    fan_curve: list[FanCurvePoint] | None = None
+    clock_offsets: ClockOffsetsPayload | None = None
+    locked: bool | None = None
+
+    @model_validator(mode="after")
+    def validate_optional_curve(self) -> "TunerApplyRequest":
+        if self.fan_curve is not None:
+            validated = FanCurveUpdateRequest(points=self.fan_curve)
+            self.fan_curve = validated.points
+        if self.profile_name is not None:
+            self.profile_name = self.profile_name.strip()
+        return self
+
+
 class TunerProfilePayload(BaseModel):
     name: str = Field(..., min_length=2, max_length=48)
     description: str = Field(default="Custom thermal & clock profile", max_length=200)
@@ -102,6 +118,7 @@ class TunerStateResponse(BaseModel):
     active_profile: str
     fan_curve: list[FanCurvePoint]
     clock_offsets: ClockOffsetsPayload
+    locked: bool = False
     updated_at: str
     hardware_apply_status: str
 
@@ -125,6 +142,7 @@ class TunerController:
             active_profile=self._state["active_profile"],
             fan_curve=[FanCurvePoint(**pt) for pt in self._state["fan_curve"]],
             clock_offsets=ClockOffsetsPayload(**self._state["clock_offsets"]),
+            locked=bool(self._state.get("locked", False)),
             updated_at=self._state["updated_at"],
             hardware_apply_status=self._last_apply_status,
         )
@@ -147,22 +165,70 @@ class TunerController:
 
     async def update_fan_curve(self, req: FanCurveUpdateRequest) -> TunerStateResponse:
         current = await self.get_state()
+        if current.locked:
+            raise PermissionError("Tuner is locked. Unlock or Reset to Defaults before editing fan curve.")
         curve_dicts = [pt.model_dump() for pt in req.points]
         self._state = await db.save_active_tuner_state(
             active_profile="Custom",
             fan_curve=curve_dicts,
             clock_offsets=current.clock_offsets.model_dump(),
+            locked=False,
         )
         self._last_apply_status = "Fan curve validated & persisted to SQLite"
         return await self.get_state()
 
     async def update_clock_offsets(self, offsets: ClockOffsetsPayload) -> TunerStateResponse:
         current = await self.get_state()
+        if current.locked:
+            raise PermissionError("Tuner is locked. Unlock or Reset to Defaults before editing clock offsets.")
         self._last_apply_status = self._try_apply_hardware_limits(offsets)
         self._state = await db.save_active_tuner_state(
             active_profile="Custom",
             fan_curve=[pt.model_dump() for pt in current.fan_curve],
             clock_offsets=offsets.model_dump(),
+            locked=False,
+        )
+        return await self.get_state()
+
+    async def apply_tuner(self, payload: TunerApplyRequest) -> TunerStateResponse:
+        """Unified apply & lock handler for /api/tuner/apply."""
+        current = await self.get_state()
+        next_locked = current.locked if payload.locked is None else payload.locked
+
+        if current.locked and payload.locked is not False and (
+            payload.fan_curve is not None or payload.clock_offsets is not None or payload.profile_name is not None
+        ):
+            raise PermissionError("Tuner is locked. Unlock or Reset to Defaults before modifying settings.")
+
+        next_profile = current.active_profile
+        next_curve = [pt.model_dump() for pt in current.fan_curve]
+        next_offsets = current.clock_offsets
+
+        if payload.profile_name is not None:
+            prof = await db.get_profile(payload.profile_name)
+            if prof is None:
+                raise KeyError(f"Profile '{payload.profile_name}' not found.")
+            next_profile = prof["name"]
+            next_curve = prof["fan_curve"]
+            next_offsets = ClockOffsetsPayload(**prof["clock_offsets"])
+
+        if payload.fan_curve is not None:
+            next_curve = [pt.model_dump() for pt in payload.fan_curve]
+            if payload.profile_name is None:
+                next_profile = "Custom"
+
+        if payload.clock_offsets is not None:
+            next_offsets = payload.clock_offsets
+            if payload.profile_name is None:
+                next_profile = "Custom"
+
+        hw_status = self._try_apply_hardware_limits(next_offsets)
+        self._last_apply_status = f"{hw_status} [LOCKED]" if next_locked else hw_status
+        self._state = await db.save_active_tuner_state(
+            active_profile=next_profile,
+            fan_curve=next_curve,
+            clock_offsets=next_offsets.model_dump(),
+            locked=next_locked,
         )
         return await self.get_state()
 
@@ -177,6 +243,7 @@ class TunerController:
             active_profile=profile["name"],
             fan_curve=profile["fan_curve"],
             clock_offsets=offsets.model_dump(),
+            locked=False,
         )
         return await self.get_state()
 
@@ -192,6 +259,7 @@ class TunerController:
             active_profile=saved["name"],
             fan_curve=saved["fan_curve"],
             clock_offsets=saved["clock_offsets"],
+            locked=False,
         )
         return saved
 

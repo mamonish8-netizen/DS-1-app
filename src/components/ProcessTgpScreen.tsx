@@ -5,16 +5,27 @@ import type { ProcessMetric, TgpHistoryResponse } from "../../aerocool-monitor/f
 interface ProcessTgpScreenProps {
   processes: ProcessMetric[];
   tgpHistory: TgpHistoryResponse | null;
+  tgpWindowMinutes: number;
   saving: boolean;
+  onChangeWindow: (minutes: number) => Promise<void>;
   onResetPeaks: () => Promise<void>;
 }
 
 type SortKey = "power" | "cpu" | "gpu" | "voltage";
 
+const SESSION_WINDOWS = [
+  { minutes: 15, label: "15m" },
+  { minutes: 60, label: "1h" },
+  { minutes: 360, label: "6h" },
+  { minutes: 1440, label: "24h" },
+] as const;
+
 export function ProcessTgpScreen({
   processes,
   tgpHistory,
+  tgpWindowMinutes,
   saving,
+  onChangeWindow,
   onResetPeaks,
 }: ProcessTgpScreenProps) {
   const [query, setQuery] = useState("");
@@ -97,7 +108,7 @@ export function ProcessTgpScreen({
         </div>
       </div>
 
-      {/* Historical Total Power Curve (Straight Lines) */}
+      {/* Historical Total Power Curve (Straight Lines + Session Filters) */}
       <div className="rounded-lg border border-slate-800 bg-[#090d16] p-4 sm:p-5 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div className="min-w-0">
@@ -108,15 +119,35 @@ export function ProcessTgpScreen({
               Combined CPU + GPU wattage ({summary.sample_count} samples)
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => void onResetPeaks()}
-            disabled={saving}
-            className="inline-flex items-center gap-2 rounded border border-slate-700 bg-black px-3 py-1.5 text-xs font-medium text-white hover:border-[#F97316] transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
-          >
-            <RotateCcw className="h-3.5 w-3.5 text-[#F97316]" />
-            Reset Peak Voltage History
-          </button>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex items-center gap-1 rounded border border-slate-800 bg-black p-0.5" role="group" aria-label="Session history window">
+              {SESSION_WINDOWS.map((win) => (
+                <button
+                  key={win.minutes}
+                  type="button"
+                  onClick={() => void onChangeWindow(win.minutes)}
+                  className={`rounded px-2.5 py-1 text-xs font-mono-tabular font-medium transition-colors whitespace-nowrap shrink-0 ${
+                    tgpWindowMinutes === win.minutes
+                      ? "bg-[#38BDF8] text-black font-semibold"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  {win.label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void onResetPeaks()}
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded border border-slate-700 bg-black px-3 py-1.5 text-xs font-medium text-white hover:border-[#F97316] transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
+            >
+              <RotateCcw className="h-3.5 w-3.5 text-[#F97316]" />
+              Reset Peak Voltage History
+            </button>
+          </div>
         </div>
 
         <div className="rounded border border-slate-800/80 bg-black p-2 overflow-hidden">

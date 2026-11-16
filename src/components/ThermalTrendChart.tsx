@@ -1,12 +1,17 @@
 import { useState } from "react";
-import type { TelemetryHistoryPoint } from "../../aerocool-monitor/frontend/src/types/telemetry";
+import type { DeviceTarget, TelemetryHistoryPoint } from "../../aerocool-monitor/frontend/src/types/telemetry";
 
 interface ThermalTrendChartProps {
   points: TelemetryHistoryPoint[];
   windowMinutes?: number;
+  deviceFilter?: DeviceTarget;
 }
 
-export function ThermalTrendChart({ points, windowMinutes = 15 }: ThermalTrendChartProps) {
+export function ThermalTrendChart({
+  points,
+  windowMinutes = 15,
+  deviceFilter = "all",
+}: ThermalTrendChartProps) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   const width = 800;
@@ -43,6 +48,9 @@ export function ThermalTrendChart({ points, windowMinutes = 15 }: ThermalTrendCh
   const cpuPolygon = `${pad.left.toFixed(1)},${(pad.top + plotH).toFixed(1)} ${cpuPolyline} ${xFor(visiblePoints.length - 1).toFixed(1)},${(pad.top + plotH).toFixed(1)}`;
   const gpuPolygon = `${pad.left.toFixed(1)},${(pad.top + plotH).toFixed(1)} ${gpuPolyline} ${xFor(visiblePoints.length - 1).toFixed(1)},${(pad.top + plotH).toFixed(1)}`;
 
+  const showCpu = deviceFilter === "all" || deviceFilter === "cpu";
+  const showGpu = deviceFilter === "all" || deviceFilter === "gpu";
+
   const gridTemps = [30, 50, 70, 90];
   const activePoint = hoverIndex !== null ? visiblePoints[hoverIndex] : visiblePoints[visiblePoints.length - 1];
   const activeX = hoverIndex !== null ? xFor(hoverIndex) : xFor(visiblePoints.length - 1);
@@ -55,19 +63,27 @@ export function ThermalTrendChart({ points, windowMinutes = 15 }: ThermalTrendCh
             Thermal Trajectory ({windowMinutes}m Window)
           </h2>
           <p className="text-xs text-slate-400">
-            CPU & GPU die temperatures · Straight-segment real-time stream
+            {deviceFilter === "all"
+              ? "CPU & GPU die temperatures · Straight-segment real-time stream"
+              : deviceFilter === "cpu"
+                ? "Focused on CPU package die temperature"
+                : "Focused on GPU core die temperature"}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-4 text-xs font-mono-tabular">
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-2.5 bg-[#F97316] shadow-[0_0_8px_#F97316]" />
-            <span className="text-white">CPU {activePoint.cpu_temp_c.toFixed(1)}°C</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-2.5 bg-[#38BDF8] shadow-[0_0_8px_#38BDF8]" />
-            <span className="text-white">GPU {activePoint.gpu_temp_c.toFixed(1)}°C</span>
-          </div>
+          {showCpu && (
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 bg-[#F97316] shadow-[0_0_8px_#F97316]" />
+              <span className="text-white">CPU {activePoint.cpu_temp_c.toFixed(1)}°C</span>
+            </div>
+          )}
+          {showGpu && (
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 bg-[#38BDF8] shadow-[0_0_8px_#38BDF8]" />
+              <span className="text-white">GPU {activePoint.gpu_temp_c.toFixed(1)}°C</span>
+            </div>
+          )}
           <span className="text-slate-400">
             {activePoint.label} · {activePoint.fan_rpm} RPM
           </span>
@@ -123,27 +139,31 @@ export function ThermalTrendChart({ points, windowMinutes = 15 }: ThermalTrendCh
             );
           })}
 
-          <polygon points={gpuPolygon} fill="url(#gpuStraightFill)" />
-          <polygon points={cpuPolygon} fill="url(#cpuStraightFill)" />
+          {showGpu && <polygon points={gpuPolygon} fill="url(#gpuStraightFill)" />}
+          {showCpu && <polygon points={cpuPolygon} fill="url(#cpuStraightFill)" />}
 
-          <polyline
-            points={gpuPolyline}
-            fill="none"
-            stroke="#38BDF8"
-            strokeWidth="2.2"
-            strokeLinejoin="miter"
-            strokeLinecap="square"
-            style={{ filter: "drop-shadow(0 0 5px rgba(56, 189, 248, 0.55))" }}
-          />
-          <polyline
-            points={cpuPolyline}
-            fill="none"
-            stroke="#F97316"
-            strokeWidth="2.2"
-            strokeLinejoin="miter"
-            strokeLinecap="square"
-            style={{ filter: "drop-shadow(0 0 5px rgba(249, 115, 22, 0.55))" }}
-          />
+          {showGpu && (
+            <polyline
+              points={gpuPolyline}
+              fill="none"
+              stroke="#38BDF8"
+              strokeWidth="2.2"
+              strokeLinejoin="miter"
+              strokeLinecap="square"
+              style={{ filter: "drop-shadow(0 0 5px rgba(56, 189, 248, 0.55))" }}
+            />
+          )}
+          {showCpu && (
+            <polyline
+              points={cpuPolyline}
+              fill="none"
+              stroke="#F97316"
+              strokeWidth="2.2"
+              strokeLinejoin="miter"
+              strokeLinecap="square"
+              style={{ filter: "drop-shadow(0 0 5px rgba(249, 115, 22, 0.55))" }}
+            />
+          )}
 
           {hoverIndex !== null && (
             <g>
@@ -156,24 +176,28 @@ export function ThermalTrendChart({ points, windowMinutes = 15 }: ThermalTrendCh
                 strokeWidth="1"
                 strokeDasharray="3 3"
               />
-              <rect
-                x={activeX - 3.5}
-                y={yForTemp(activePoint.cpu_temp_c) - 3.5}
-                width="7"
-                height="7"
-                fill="#F97316"
-                stroke="#ffffff"
-                strokeWidth="1.2"
-              />
-              <rect
-                x={activeX - 3.5}
-                y={yForTemp(activePoint.gpu_temp_c) - 3.5}
-                width="7"
-                height="7"
-                fill="#38BDF8"
-                stroke="#ffffff"
-                strokeWidth="1.2"
-              />
+              {showCpu && (
+                <rect
+                  x={activeX - 3.5}
+                  y={yForTemp(activePoint.cpu_temp_c) - 3.5}
+                  width="7"
+                  height="7"
+                  fill="#F97316"
+                  stroke="#ffffff"
+                  strokeWidth="1.2"
+                />
+              )}
+              {showGpu && (
+                <rect
+                  x={activeX - 3.5}
+                  y={yForTemp(activePoint.gpu_temp_c) - 3.5}
+                  width="7"
+                  height="7"
+                  fill="#38BDF8"
+                  stroke="#ffffff"
+                  strokeWidth="1.2"
+                />
+              )}
             </g>
           )}
 

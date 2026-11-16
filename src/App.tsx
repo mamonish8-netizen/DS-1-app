@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Wind, Zap } from "lucide-react";
 import { useAeroCool } from "../aerocool-monitor/frontend/src/hooks/useAeroCool";
+import type { DeviceTarget } from "../aerocool-monitor/frontend/src/types/telemetry";
 import { ProcessTgpScreen } from "./components/ProcessTgpScreen";
 import { ProfileSymbol } from "./components/ProfileSymbol";
 import { RadialGauge } from "./components/RadialGauge";
@@ -15,14 +16,16 @@ export default function App() {
     telemetry,
     history15m,
     tgpHistory,
+    tgpWindowMinutes,
     tunerState,
     profiles,
     loading,
     saving,
     error,
     clearError,
+    refreshTgpHistory,
+    applyTuner,
     updateFanCurve,
-    updateClockOffsets,
     applyProfile,
     saveProfile,
     deleteProfile,
@@ -31,12 +34,17 @@ export default function App() {
   } = useAeroCool();
 
   const [activeScreen, setActiveScreen] = useState<ScreenTab>("overview");
+  const [selectedDevice, setSelectedDevice] = useState<DeviceTarget>("all");
 
   const cpuTemp = telemetry?.cpu.temp_c ?? 0;
   const gpuTemp = telemetry?.gpu.temp_c ?? 0;
   const cpuFanRpm = telemetry?.cpu.fan_rpm ?? 900;
   const gpuFanRpm = telemetry?.gpu.fan_rpm ?? 950;
   const totalPowerW = (telemetry?.cpu.package_power_w ?? 0) + (telemetry?.gpu.power_w ?? 0);
+
+  const rotorRpm = selectedDevice === "gpu" ? gpuFanRpm : cpuFanRpm;
+  const rotorDuty = selectedDevice === "gpu" ? (telemetry?.gpu.fan_pct ?? 40) : (telemetry?.cpu.fan_pct ?? 40);
+  const rotorLabel = selectedDevice === "gpu" ? "GPU Blower Rotor" : "CPU Loop Rotor";
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -160,9 +168,27 @@ export default function App() {
                 <section className="rounded-lg border border-slate-800 bg-[#090d16] p-4 sm:p-6 overflow-hidden">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
                     <div className="lg:col-span-7 space-y-3 min-w-0">
-                      <p className="text-xs font-medium text-slate-400 truncate">
-                        {telemetry.platform.cpu_model} · {telemetry.platform.gpu_model}
-                      </p>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs font-medium text-slate-400 truncate">
+                          {telemetry.platform.cpu_model} · {telemetry.platform.gpu_model}
+                        </p>
+
+                        {/* Device Dropdown Selector */}
+                        <label className="inline-flex items-center gap-2 text-xs text-slate-400 shrink-0">
+                          <span>Device</span>
+                          <select
+                            aria-label="Select hardware device"
+                            value={selectedDevice}
+                            onChange={(e) => setSelectedDevice(e.target.value as DeviceTarget)}
+                            className="rounded border border-slate-700 bg-black px-2.5 py-1 text-xs font-medium text-white focus:border-[#38BDF8] focus:outline-none"
+                          >
+                            <option value="all">All Devices (CPU + GPU)</option>
+                            <option value="cpu">CPU Package</option>
+                            <option value="gpu">GPU Core</option>
+                          </select>
+                        </label>
+                      </div>
+
                       <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-white text-balance">
                         Active Loop Cooling & Thermal Equilibrium
                       </h1>
@@ -174,18 +200,22 @@ export default function App() {
                             {totalPowerW.toFixed(1)} W
                           </span>
                         </div>
-                        <div>
-                          <span className="text-[11px] text-slate-400 block">CPU Core Clock</span>
-                          <span className="text-lg sm:text-xl font-semibold text-white">
-                            {telemetry.cpu.clock_mhz.toFixed(0)} MHz
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[11px] text-slate-400 block">GPU Core Clock</span>
-                          <span className="text-lg sm:text-xl font-semibold text-[#38BDF8] text-glow-cool">
-                            {telemetry.gpu.clock_mhz.toFixed(0)} MHz
-                          </span>
-                        </div>
+                        {(selectedDevice === "all" || selectedDevice === "cpu") && (
+                          <div>
+                            <span className="text-[11px] text-slate-400 block">CPU Core Clock</span>
+                            <span className="text-lg sm:text-xl font-semibold text-white">
+                              {telemetry.cpu.clock_mhz.toFixed(0)} MHz
+                            </span>
+                          </div>
+                        )}
+                        {(selectedDevice === "all" || selectedDevice === "gpu") && (
+                          <div>
+                            <span className="text-[11px] text-slate-400 block">GPU Core Clock</span>
+                            <span className="text-lg sm:text-xl font-semibold text-[#38BDF8] text-glow-cool">
+                              {telemetry.gpu.clock_mhz.toFixed(0)} MHz
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Tuning Profile Buttons with Unique Profile Symbols */}
@@ -216,17 +246,17 @@ export default function App() {
                     <div className="lg:col-span-5 flex items-center justify-center">
                       <div className="flex items-center gap-4 sm:gap-6 rounded-lg border border-slate-800 bg-black px-5 py-4 w-full sm:w-auto justify-center">
                         <SpinningFanSvg
-                          rpm={cpuFanRpm}
+                          rpm={rotorRpm}
                           accent={telemetry.thermal_state === "critical" ? "thermal" : "cool"}
                           className="w-24 h-24 sm:w-32 sm:h-32 shrink-0"
                         />
                         <div className="font-mono-tabular space-y-1.5 min-w-0">
-                          <p className="text-xs text-slate-400">Primary Rotor</p>
+                          <p className="text-xs text-slate-400">{rotorLabel}</p>
                           <p className="text-2xl font-semibold text-[#38BDF8] text-glow-cool">
-                            {cpuFanRpm} <span className="text-xs text-slate-400">RPM</span>
+                            {rotorRpm} <span className="text-xs text-slate-400">RPM</span>
                           </p>
                           <p className="text-xs text-slate-400">
-                            Duty {telemetry.cpu.fan_pct.toFixed(1)}%
+                            Duty {rotorDuty.toFixed(1)}%
                           </p>
                         </div>
                       </div>
@@ -234,44 +264,56 @@ export default function App() {
                   </div>
                 </section>
 
-                {/* Primary Telemetry Gauges */}
-                <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                  <RadialGauge
-                    label="CPU Package Temp"
-                    value={cpuTemp}
-                    max={100}
-                    unit="°C"
-                    sublabel={`${telemetry.cpu.usage_pct.toFixed(1)}% load · ${telemetry.cpu.voltage_mv.toFixed(0)} mV`}
-                    tone="thermal"
-                  />
-                  <RadialGauge
-                    label="GPU Core Temp"
-                    value={gpuTemp}
-                    max={95}
-                    unit="°C"
-                    sublabel={`Hotspot ${telemetry.gpu.hotspot_c.toFixed(1)}°C · ${telemetry.gpu.usage_pct.toFixed(1)}% load`}
-                    tone="thermal"
-                  />
-                  <RadialGauge
-                    label="CPU Cooling Fan"
-                    value={cpuFanRpm}
-                    max={2800}
-                    unit="RPM"
-                    sublabel={`${telemetry.cpu.fan_pct.toFixed(1)}% duty cycle`}
-                    tone="cool"
-                  />
-                  <RadialGauge
-                    label="GPU Blower Fan"
-                    value={gpuFanRpm}
-                    max={3200}
-                    unit="RPM"
-                    sublabel={`${telemetry.gpu.fan_pct.toFixed(1)}% duty · ${telemetry.gpu.power_w.toFixed(1)}W / ${telemetry.gpu.tgp_limit_w.toFixed(0)}W`}
-                    tone="cool"
-                  />
+                {/* Primary Telemetry Gauges filtered by Device Dropdown */}
+                <section
+                  className={`grid grid-cols-1 sm:grid-cols-2 ${
+                    selectedDevice === "all" ? "lg:grid-cols-4" : "lg:grid-cols-2"
+                  } gap-3 sm:gap-4`}
+                >
+                  {(selectedDevice === "all" || selectedDevice === "cpu") && (
+                    <>
+                      <RadialGauge
+                        label="CPU Package Temp"
+                        value={cpuTemp}
+                        max={100}
+                        unit="°C"
+                        sublabel={`${telemetry.cpu.usage_pct.toFixed(1)}% load · ${telemetry.cpu.voltage_mv.toFixed(0)} mV`}
+                        tone="thermal"
+                      />
+                      <RadialGauge
+                        label="CPU Cooling Fan"
+                        value={cpuFanRpm}
+                        max={2800}
+                        unit="RPM"
+                        sublabel={`${telemetry.cpu.fan_pct.toFixed(1)}% duty · ${telemetry.cpu.package_power_w.toFixed(1)}W`}
+                        tone="cool"
+                      />
+                    </>
+                  )}
+                  {(selectedDevice === "all" || selectedDevice === "gpu") && (
+                    <>
+                      <RadialGauge
+                        label="GPU Core Temp"
+                        value={gpuTemp}
+                        max={95}
+                        unit="°C"
+                        sublabel={`Hotspot ${telemetry.gpu.hotspot_c.toFixed(1)}°C · ${telemetry.gpu.usage_pct.toFixed(1)}% load`}
+                        tone="thermal"
+                      />
+                      <RadialGauge
+                        label="GPU Blower Fan"
+                        value={gpuFanRpm}
+                        max={3200}
+                        unit="RPM"
+                        sublabel={`${telemetry.gpu.fan_pct.toFixed(1)}% duty · ${telemetry.gpu.power_w.toFixed(1)}W / ${telemetry.gpu.tgp_limit_w.toFixed(0)}W`}
+                        tone="cool"
+                      />
+                    </>
+                  )}
                 </section>
 
                 {/* Dominant Straight-Line Live Trend Chart */}
-                <ThermalTrendChart points={history15m} windowMinutes={15} />
+                <ThermalTrendChart points={history15m} windowMinutes={15} deviceFilter={selectedDevice} />
               </div>
             )}
 
@@ -279,7 +321,9 @@ export default function App() {
               <ProcessTgpScreen
                 processes={telemetry.processes}
                 tgpHistory={tgpHistory}
+                tgpWindowMinutes={tgpWindowMinutes}
                 saving={saving}
+                onChangeWindow={refreshTgpHistory}
                 onResetPeaks={resetTgpPeaks}
               />
             )}
@@ -289,8 +333,8 @@ export default function App() {
                 tunerState={tunerState}
                 profiles={profiles}
                 saving={saving}
+                onApplyTuner={applyTuner}
                 onUpdateFanCurve={updateFanCurve}
-                onUpdateClockOffsets={updateClockOffsets}
                 onApplyProfile={applyProfile}
                 onSaveProfile={saveProfile}
                 onDeleteProfile={deleteProfile}

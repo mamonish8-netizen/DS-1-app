@@ -65,14 +65,14 @@ async def _telemetry_sampler_loop(app: FastAPI) -> None:
                 await db.insert_tgp_log(
                     recorded_at=frame.timestamp,
                     epoch_ms=frame.epoch_ms,
-                    cpu_temp_c=frame.cpu["temp_c"],
-                    gpu_temp_c=frame.gpu["temp_c"],
-                    cpu_power_w=frame.cpu["package_power_w"],
-                    gpu_power_w=frame.gpu["power_w"],
-                    gpu_voltage_mv=frame.gpu["voltage_mv"],
-                    cpu_voltage_mv=frame.cpu["voltage_mv"],
-                    fan_rpm=frame.cpu["fan_rpm"],
-                    fan_pct=frame.cpu["fan_pct"],
+                    cpu_temp_c=frame.cpu.temp_c,
+                    gpu_temp_c=frame.gpu.temp_c,
+                    cpu_power_w=frame.cpu.package_power_w,
+                    gpu_power_w=frame.gpu.power_w,
+                    gpu_voltage_mv=frame.gpu.voltage_mv,
+                    cpu_voltage_mv=frame.cpu.voltage_mv,
+                    fan_rpm=frame.cpu.fan_rpm,
+                    fan_pct=frame.cpu.fan_pct,
                     active_profile=frame.active_profile,
                 )
 

@@ -7,6 +7,7 @@ import type {
   TelemetryFrame,
   TelemetryHistoryResponse,
   TgpHistoryResponse,
+  TunerApplyInput,
   TunerProfile,
   TunerState,
 } from "../types/telemetry";
@@ -80,7 +81,7 @@ export class AeroCoolApiClient {
   }
 
   getTgpHistory(minutes = 60, limit = 120): Promise<TgpHistoryResponse> {
-    return this.request<TgpHistoryResponse>(`/api/tgp/history?minutes=${minutes}&limit=${limit}`);
+    return this.request<TgpHistoryResponse>(`/api/processes/tgp-history?minutes=${minutes}&limit=${limit}`);
   }
 
   resetTgpPeaks(): Promise<{ status: string; cleared_records: number; timestamp: string }> {
@@ -89,6 +90,13 @@ export class AeroCoolApiClient {
 
   getTunerState(): Promise<TunerState> {
     return this.request<TunerState>("/api/tuner");
+  }
+
+  applyTuner(payload: TunerApplyInput): Promise<TunerState> {
+    return this.request<TunerState>("/api/tuner/apply", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   }
 
   updateFanCurve(points: FanCurvePoint[]): Promise<TunerState> {

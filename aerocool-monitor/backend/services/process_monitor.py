@@ -77,31 +77,34 @@ class ProcessMonitor:
         core_count = max(1, snapshot.cpu.core_count)
         raw_procs: list[dict[str, Any]] = []
 
-        for proc in psutil.process_iter(["pid", "name", "cpu_percent", "memory_info", "status"]):
-            try:
-                info = proc.info
-                name = (info.get("name") or "unknown").strip()
-                pid = int(info.get("pid") or 0)
-                if pid == 0:
+        try:
+            for proc in psutil.process_iter(["pid", "name", "cpu_percent", "memory_info", "status"]):
+                try:
+                    info = proc.info
+                    name = (info.get("name") or "unknown").strip()
+                    pid = int(info.get("pid") or 0)
+                    if pid == 0:
+                        continue
+
+                    raw_cpu = float(info.get("cpu_percent") or 0.0)
+                    normalized_cpu = round(min(100.0, raw_cpu / core_count), 1)
+                    mem_info = info.get("memory_info")
+                    mem_mb = round((mem_info.rss / (1024 * 1024)) if mem_info else 0.0, 1)
+                    status = str(info.get("status") or "running")
+
+                    raw_procs.append(
+                        {
+                            "pid": pid,
+                            "name": name,
+                            "cpu_pct": normalized_cpu,
+                            "memory_mb": mem_mb,
+                            "status": status,
+                        }
+                    )
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                     continue
-
-                raw_cpu = float(info.get("cpu_percent") or 0.0)
-                normalized_cpu = round(min(100.0, raw_cpu / core_count), 1)
-                mem_info = info.get("memory_info")
-                mem_mb = round((mem_info.rss / (1024 * 1024)) if mem_info else 0.0, 1)
-                status = str(info.get("status") or "running")
-
-                raw_procs.append(
-                    {
-                        "pid": pid,
-                        "name": name,
-                        "cpu_pct": normalized_cpu,
-                        "memory_mb": mem_mb,
-                        "status": status,
-                    }
-                )
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                continue
+        except Exception:
+            pass
 
         # Sort by CPU% then memory usage
         raw_procs.sort(key=lambda item: (item["cpu_pct"], item["memory_mb"]), reverse=True)

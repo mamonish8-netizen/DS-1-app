@@ -11,12 +11,19 @@ from pydantic import BaseModel
 
 from backend.core.config import settings
 from backend.core.database import db
-from backend.services.hardware_reader import HardwareSnapshot, hardware_reader
+from backend.services.hardware_reader import (
+    CpuTelemetry,
+    GpuTelemetry,
+    HardwareSnapshot,
+    PlatformMetadata,
+    hardware_reader,
+)
 from backend.services.process_monitor import ProcessMetric, process_monitor
 from backend.services.tuner_controller import (
     ClockOffsetsPayload,
     FanCurvePoint,
     FanCurveUpdateRequest,
+    TunerApplyRequest,
     TunerProfilePayload,
     TunerStateResponse,
     tuner_controller,
@@ -39,9 +46,9 @@ class TelemetryFrame(BaseModel):
     timestamp: str
     epoch_ms: int
     mode: str
-    platform: dict[str, Any]
-    cpu: dict[str, Any]
-    gpu: dict[str, Any]
+    platform: PlatformMetadata
+    cpu: CpuTelemetry
+    gpu: GpuTelemetry
     thermal_state: str
     active_profile: str
     fan_curve: list[FanCurvePoint]
@@ -70,9 +77,9 @@ async def build_telemetry_frame(persist_peaks: bool = False) -> TelemetryFrame:
         timestamp=now.isoformat(),
         epoch_ms=epoch_ms,
         mode=snapshot.mode,
-        platform=snapshot.platform.model_dump(),
-        cpu=snapshot.cpu.model_dump(),
-        gpu=snapshot.gpu.model_dump(),
+        platform=snapshot.platform,
+        cpu=snapshot.cpu,
+        gpu=snapshot.gpu,
         thermal_state=snapshot.thermal_state,
         active_profile=tuner_state.active_profile,
         fan_curve=tuner_state.fan_curve,
@@ -183,6 +190,7 @@ async def get_processes(
     }
 
 
+@router.get("/processes/tgp-history")
 @router.get("/tgp/history")
 async def get_tgp_history(
     minutes: int = Query(default=60, ge=5, le=1440),
@@ -205,7 +213,7 @@ async def reset_tgp_peaks() -> dict[str, Any]:
 
 @router.get("/tuner")
 async def get_tuner_state() -> dict[str, Any]:
-    """Screen 3 API: Active fan curve, permanent clock offsets, and safety bounds."""
+    """Screen 3 API: Active fan curve, permanent clock offsets, lock status, and safety bounds."""
     state: TunerStateResponse = await tuner_controller.get_state()
     return {
         **state.model_dump(),
@@ -213,17 +221,35 @@ async def get_tuner_state() -> dict[str, Any]:
     }
 
 
+@router.post("/tuner/apply", response_model=TunerStateResponse)
+async def apply_tuner(payload: TunerApplyRequest) -> TunerStateResponse:
+    """Screen 3 unified Apply & Lock endpoint."""
+    try:
+        return await tuner_controller.apply_tuner(payload)
+    except KeyError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_423_LOCKED, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+
 @router.put("/tuner/fan-curve", response_model=TunerStateResponse)
 async def update_fan_curve(payload: FanCurveUpdateRequest) -> TunerStateResponse:
     try:
         return await tuner_controller.update_fan_curve(payload)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_423_LOCKED, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
 
 @router.put("/tuner/clocks", response_model=TunerStateResponse)
 async def update_clock_offsets(payload: ClockOffsetsPayload) -> TunerStateResponse:
-    return await tuner_controller.update_clock_offsets(payload)
+    try:
+        return await tuner_controller.update_clock_offsets(payload)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_423_LOCKED, detail=str(exc)) from exc
 
 
 @router.get("/tuner/profiles")

@@ -159,10 +159,16 @@ class DatabaseManager:
                     active_profile TEXT NOT NULL,
                     fan_curve_json TEXT NOT NULL,
                     clock_offsets_json TEXT NOT NULL,
+                    is_locked INTEGER NOT NULL DEFAULT 0,
                     updated_at TEXT NOT NULL
                 );
                 """
             )
+            # Safe schema migration for existing aerocool.db files created prior to is_locked
+            pragma_cursor = await conn.execute("PRAGMA table_info(active_tuner_state)")
+            cols = {row["name"] for row in await pragma_cursor.fetchall()}
+            if "is_locked" not in cols:
+                await conn.execute("ALTER TABLE active_tuner_state ADD COLUMN is_locked INTEGER NOT NULL DEFAULT 0")
             await self._seed_defaults(conn)
             await conn.commit()
         finally:
@@ -194,8 +200,8 @@ class DatabaseManager:
             await conn.execute(
                 """
                 INSERT INTO active_tuner_state
-                    (id, active_profile, fan_curve_json, clock_offsets_json, updated_at)
-                VALUES (1, ?, ?, ?, ?)
+                    (id, active_profile, fan_curve_json, clock_offsets_json, is_locked, updated_at)
+                VALUES (1, ?, ?, ?, 0, ?)
                 """,
                 (
                     balanced["name"],
@@ -377,7 +383,7 @@ class DatabaseManager:
         try:
             cursor = await conn.execute(
                 """
-                SELECT active_profile, fan_curve_json, clock_offsets_json, updated_at
+                SELECT active_profile, fan_curve_json, clock_offsets_json, is_locked, updated_at
                 FROM active_tuner_state
                 WHERE id = 1
                 """
@@ -389,12 +395,14 @@ class DatabaseManager:
                     "active_profile": balanced["name"],
                     "fan_curve": balanced["fan_curve"],
                     "clock_offsets": balanced["clock_offsets"],
+                    "locked": False,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                 }
             return {
                 "active_profile": row["active_profile"],
                 "fan_curve": json.loads(row["fan_curve_json"]),
                 "clock_offsets": json.loads(row["clock_offsets_json"]),
+                "locked": bool(row["is_locked"]),
                 "updated_at": row["updated_at"],
             }
         finally:
@@ -406,6 +414,7 @@ class DatabaseManager:
         active_profile: str,
         fan_curve: list[dict[str, int]],
         clock_offsets: dict[str, Any],
+        locked: bool = False,
     ) -> dict[str, Any]:
         now_iso = datetime.now(timezone.utc).isoformat()
         conn = await self.connect()
@@ -416,6 +425,7 @@ class DatabaseManager:
                 SET active_profile = ?,
                     fan_curve_json = ?,
                     clock_offsets_json = ?,
+                    is_locked = ?,
                     updated_at = ?
                 WHERE id = 1
                 """,
@@ -423,6 +433,7 @@ class DatabaseManager:
                     active_profile,
                     json.dumps(fan_curve),
                     json.dumps(clock_offsets),
+                    1 if locked else 0,
                     now_iso,
                 ),
             )
@@ -431,6 +442,7 @@ class DatabaseManager:
                 "active_profile": active_profile,
                 "fan_curve": fan_curve,
                 "clock_offsets": clock_offsets,
+                "locked": locked,
                 "updated_at": now_iso,
             }
         finally:
@@ -497,8 +509,12 @@ class DatabaseManager:
         now_iso = datetime.now(timezone.utc).isoformat()
         conn = await self.connect()
         try:
-            existing = await self.get_profile(name)
-            is_builtin = 1 if (existing and existing["is_builtin"]) else 0
+            existing_cursor = await conn.execute(
+                "SELECT is_builtin FROM tuner_profiles WHERE name = ?",
+                (name,),
+            )
+            existing_row = await existing_cursor.fetchone()
+            is_builtin = 1 if (existing_row and existing_row["is_builtin"]) else 0
             await conn.execute(
                 """
                 INSERT INTO tuner_profiles

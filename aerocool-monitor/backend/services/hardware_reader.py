@@ -241,14 +241,21 @@ class HardwareReader:
         """Collect real telemetry if available, blending seamlessly with physics-based fallback."""
         sources: list[str] = []
 
-        # Real CPU utilization and frequency from psutil
-        cpu_usage = round(float(psutil.cpu_percent(interval=None)), 1)
+        # Real CPU utilization and frequency from psutil (safe fallback on restricted OS)
+        try:
+            cpu_usage = round(float(psutil.cpu_percent(interval=None)), 1)
+        except Exception:
+            cpu_usage = 22.0
         core_count = psutil.cpu_count(logical=True) or os.cpu_count() or 8
 
-        cpu_freq = psutil.cpu_freq()
-        base_cpu_clock = round(float(cpu_freq.current), 0) if (cpu_freq and cpu_freq.current > 0) else 3850.0
-        if cpu_freq and cpu_freq.current > 0:
-            sources.append("psutil.cpu_freq")
+        base_cpu_clock = 3850.0
+        try:
+            cpu_freq = psutil.cpu_freq()
+            if cpu_freq and cpu_freq.current > 0:
+                base_cpu_clock = round(float(cpu_freq.current), 0)
+                sources.append("psutil.cpu_freq")
+        except Exception:
+            pass
 
         cpu_offset_mhz = float(clock_offsets.get("cpu_core_mhz", 0))
         gpu_core_offset_mhz = float(clock_offsets.get("gpu_core_mhz", 0))
